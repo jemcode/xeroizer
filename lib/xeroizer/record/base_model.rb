@@ -1,17 +1,17 @@
-require 'xeroizer/record/base_model_http_proxy'
+require "xeroizer/record/base_model_http_proxy"
 
 module Xeroizer
   module Record
-
     class BaseModel
-
       include ClassLevelInheritableAttributes
       class_inheritable_attributes :api_controller_name
 
       module InvaidPermissionError; end
+
       class InvalidPermissionError < XeroizerError
         include InvaidPermissionError
       end
+
       ALLOWED_PERMISSIONS = [:read, :write, :update]
       class_inheritable_attributes :permissions
 
@@ -44,7 +44,7 @@ module Xeroizer
         # Valid permissions are :read, :write, :update.
         def set_permissions(*args)
           self.permissions = {}
-          args.each do | permission |
+          args.each do |permission|
             raise InvalidPermissionError.new("Permission #{permission} is invalid.") unless ALLOWED_PERMISSIONS.include?(permission)
             self.permissions[permission] = true
           end
@@ -67,7 +67,6 @@ module Xeroizer
         def set_optional_xml_root_name(optional_root_name)
           self.optional_xml_root_name = optional_root_name
         end
-
       end
 
       public
@@ -129,6 +128,8 @@ module Xeroizer
       def find_in_batches(options = {}, &block)
         options[:page] ||= 1
         while results = all(options)
+          break if options[:max_pages] && options[:page] > options[:max_pages]
+
           if results.any?
             yield results
             options[:page] += 1
@@ -160,7 +161,7 @@ module Xeroizer
         no_errors = true
         return false unless records.all?(&:valid?)
 
-        actions = records.group_by {|o| o.new_record? ? create_method : :http_post }
+        actions = records.group_by { |o| o.new_record? ? create_method : :http_post }
         actions.each_pair do |http_method, records_for_method|
           records_for_method.each_slice(chunk_size) do |some_records|
             request = to_bulk_xml(some_records)
@@ -197,7 +198,7 @@ module Xeroizer
       end
 
       def parse_response(response_xml, options = {})
-        Response.parse(response_xml, options) do | response, elements, response_model_name |
+        Response.parse(response_xml, options) do |response, elements, response_model_name|
           if model_name == response_model_name
             @response = response
             parse_records(response, elements, paged_records_requested?(options), (options[:base_module] || Xeroizer::Record))
@@ -211,19 +212,18 @@ module Xeroizer
 
       protected
 
-
       def paged_records_requested?(options)
         options.has_key?(:page) and options[:page].to_i >= 0
       end
 
       # Parse the records part of the XML response and builds model instances as necessary.
       def parse_records(response, elements, paged_results, base_module)
-        elements.each do | element |
+        elements.each do |element|
           new_record = model_class.build_from_node(element, self, base_module)
-          if element.attribute('status').try(:value) == 'ERROR'
+          if element.attribute("status").try(:value) == "ERROR"
             new_record.errors = []
-            element.xpath('.//ValidationError').each do |err|
-              new_record.errors << err.text.gsub(/^\s+/, '').gsub(/\s+$/, '')
+            element.xpath(".//ValidationError").each do |err|
+              new_record.errors << err.text.gsub(/^\s+/, "").gsub(/\s+$/, "")
             end
           end
           new_record.paged_record_downloaded = paged_results
@@ -234,7 +234,7 @@ module Xeroizer
       def to_bulk_xml(records, builder = Builder::XmlMarkup.new(:indent => 2))
         tag = (self.class.optional_xml_root_name || model_name).pluralize
         builder.tag!(tag) do
-          records.each {|r| r.to_xml(builder) }
+          records.each { |r| r.to_xml(builder) }
         end
       end
 
@@ -248,6 +248,5 @@ module Xeroizer
         self
       end
     end
-
   end
 end
